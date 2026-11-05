@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Время МСК-НСК">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="./icon.png">
+<link rel="icon" href="./icon.png">
+<link rel="manifest" href="./manifest.webmanifest">
+<title>Время: Москва и Новосибирск</title>
+<style>
+:root{--bg:#eef2f5;--surface:#ffffff;--ink:#14212b;--muted:#5b6b78;--line:#d3dce3;--msk:#1f5fbf;--nsk:#0d7a5f;--ok:#d9efe6;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f171d;--surface:#17222b;--ink:#e6edf2;--muted:#93a4b1;--line:#2a3a46;--msk:#6aa2f0;--nsk:#4fcaa3;--ok:#16372f;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f171d;--surface:#17222b;--ink:#e6edf2;--muted:#93a4b1;--line:#2a3a46;--msk:#6aa2f0;--nsk:#4fcaa3;--ok:#16372f;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;line-height:1.45}
+main{max-width:520px;margin:0 auto;padding:20px 16px 32px}
+h1{font-size:1.25rem;margin:0 0 4px}
+.sub{color:var(--muted);font-size:.9rem;margin:0 0 18px}
+.clocks{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.clock{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 12px}
+.clock .city{font-size:.9rem;color:var(--muted)}
+.clock .t{font-size:2.1rem;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.clock .d{font-size:.8rem;color:var(--muted)}
+.msk .t{color:var(--msk)}.nsk .t{color:var(--nsk)}
+.diff{margin:12px 0 22px;font-size:.95rem}
+section{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:16px}
+h2{font-size:1.05rem;margin:0 0 10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:44px}
+select:focus-visible,input:focus-visible{outline:2px solid var(--msk);outline-offset:1px}
+.res{margin-top:12px;font-size:1.15rem}
+.res b{font-variant-numeric:tabular-nums}
+.note{color:var(--muted);font-size:.85rem}
+.wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--line);font-size:.95rem}
+th{font-weight:600;color:var(--muted);font-size:.85rem}
+tr.ok td:first-child{box-shadow:inset 3px 0 0 var(--nsk)}
+tr.ok{background:var(--ok)}
+tr.now{outline:2px solid var(--msk);outline-offset:-2px;font-weight:700}
+.legend{margin-top:10px}
+</style>
+</head>
+<body>
+<main>
+<h1>Время: Москва и Новосибирск</h1>
+<p class="sub">Москва UTC+3, Новосибирск UTC+7. Летнего времени в России нет, разница всегда 4 часа.</p>
+
+<div class="clocks">
+  <div class="clock msk"><div class="city">Москва</div><div class="t" id="tm">--:--</div><div class="d" id="dm"></div></div>
+  <div class="clock nsk"><div class="city">Новосибирск</div><div class="t" id="tn">--:--</div><div class="d" id="dn"></div></div>
+</div>
+<p class="diff">Новосибирск впереди Москвы на 4 часа.</p>
+
+<section>
+  <h2>Пересчёт времени</h2>
+  <div class="row">
+    <select id="from" aria-label="Город">
+      <option value="msk">В Москве</option>
+      <option value="nsk">В Новосибирске</option>
+    </select>
+    <input type="time" id="inp" value="12:00" aria-label="Время">
+  </div>
+  <div class="res" id="res"></div>
+</section>
+
+<section>
+  <h2>Таблица часов</h2>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>Москва</th><th>Новосибирск</th></tr></thead>
+      <tbody id="tb"></tbody>
+    </table>
+  </div>
+  <p class="note legend">Рамка: сейчас. Зелёным: рабочее время (9:00–18:00) в обоих городах. «+1 день»: в Новосибирске уже следующая дата.</p>
+</section>
+</main>
+<script>
+(function(){
+  var pad=function(n){return (n<10?'0':'')+n};
+  function fmt(zone,opts){return new Intl.DateTimeFormat('ru-RU',Object.assign({timeZone:zone},opts)).format(new Date())}
+  function tick(){
+    document.getElementById('tm').textContent=fmt('Europe/Moscow',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('tn').textContent=fmt('Asia/Novosibirsk',{hour:'2-digit',minute:'2-digit'});
+    var o={weekday:'short',day:'numeric',month:'long'};
+    document.getElementById('dm').textContent=fmt('Europe/Moscow',o);
+    document.getElementById('dn').textContent=fmt('Asia/Novosibirsk',o);
+    markNow();
+  }
+  function mskHour(){return parseInt(fmt('Europe/Moscow',{hour:'2-digit',hour12:false}),10)%24}
+  var tb=document.getElementById('tb'),rows=[];
+  for(var h=0;h<24;h++){
+    var n=h+4,next=n>=24;n=n%24;
+    var tr=document.createElement('tr');
+    if(h>=9&&h<18&&n>=9&&n<18)tr.className='ok';
+    tr.innerHTML='<td>'+pad(h)+':00</td><td>'+pad(n)+':00'+(next?' <span class="note">+1 день</span>':'')+'</td>';
+    tb.appendChild(tr);rows.push(tr);
+  }
+  function markNow(){
+    var c=mskHour();
+    rows.forEach(function(r,i){r.classList.toggle('now',i===c)});
+  }
+  function convert(){
+    var v=document.getElementById('inp').value,res=document.getElementById('res');
+    if(!v){res.textContent='Введите время';return}
+    var p=v.split(':'),m=parseInt(p[0],10)*60+parseInt(p[1],10);
+    var fromMsk=document.getElementById('from').value==='msk';
+    var t=m+(fromMsk?240:-240),day='';
+    if(t>=1440){t-=1440;day=' (на следующий день)'}
+    if(t<0){t+=1440;day=' (накануне)'}
+    var out=pad(Math.floor(t/60))+':'+pad(t%60);
+    res.innerHTML=fromMsk?('В Новосибирске будет <b>'+out+'</b>'+day):('В Москве будет <b>'+out+'</b>'+day);
+  }
+  document.getElementById('inp').addEventListener('input',convert);
+  document.getElementById('from').addEventListener('change',convert);
+  convert();tick();setInterval(tick,1000);
+})();
+if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(){})})}
+</script>
+</body>
+</html>
